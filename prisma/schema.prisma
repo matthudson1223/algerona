@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String             @id @default(cuid())
+  email            String             @unique
+  emailVerified    DateTime?
+  name             String?
+  image            String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  accounts         Account[]
+  sessions         Session[]
+  algorithmProfiles AlgorithmProfile[]
+  activeProfileId  String?
+  watchEvents      WatchEvent[]
+  feedbackEvents   FeedbackEvent[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+model AlgorithmProfile {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String   @default("My Feed")
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Category weights (0-100)
+  catCooking     Int @default(50)
+  catTechnology  Int @default(50)
+  catComedy      Int @default(50)
+  catFitness     Int @default(50)
+  catMusic       Int @default(50)
+  catEducation   Int @default(50)
+  catGaming      Int @default(50)
+  catNews        Int @default(0)
+  catTravel      Int @default(50)
+  catArt         Int @default(50)
+  catSports      Int @default(50)
+  catScience     Int @default(50)
+
+  // Content controls
+  maxDuration       Int      @default(60)
+  minDuration       Int      @default(5)
+  languages         String[] @default(["en"])
+  excludeKeywords   String[] @default([])
+  includeKeywords   String[] @default([])
+  freshness         String   @default("week") // "day" | "week" | "month" | "any"
+  popularityBias    Int      @default(30)     // 0=niche, 100=viral
+  diversityFactor   Int      @default(50)
+  repeatTolerance   Int      @default(20)
+
+  // Source preferences
+  youtubeEnabled  Boolean @default(true)
+  youtubeWeight   Int     @default(100)
+  tiktokEnabled   Boolean @default(false)
+  tiktokWeight    Int     @default(0)
+
+  // Natural language rules (array of strings processed by Claude)
+  nlRules String[] @default([])
+}
+
+model WatchEvent {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoId         String
+  platform        String   // "youtube" | "tiktok"
+  watchedDuration Int      // seconds watched
+  totalDuration   Int      // total video length in seconds
+  skipped         Boolean  @default(false)
+  timestamp       DateTime @default(now())
+
+  @@index([userId, timestamp])
+}
+
+model FeedbackEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoId   String
+  platform  String
+  action    String   // "like" | "dislike" | "block_creator" | "more_like_this" | "less_like_this"
+  timestamp DateTime @default(now())
+
+  @@index([userId, timestamp])
+}
