@@ -116,7 +116,7 @@ export async function fetchYouTubeShorts(options: {
   const detailsMap = new Map(details.map((d) => [d.id, d]));
 
   const videos: VideoMetadata[] = items
-    .map((item) => {
+    .map((item): VideoMetadata | null => {
       const detail = detailsMap.get(item.id.videoId);
       if (!detail) return null;
 
@@ -146,7 +146,7 @@ export async function fetchYouTubeShorts(options: {
         categories: [categoryName],
         language: language.split("-")[0], // "en-US" -> "en"
         embedUrl: `https://www.youtube.com/embed/${item.id.videoId}?autoplay=1&controls=0&loop=1&playlist=${item.id.videoId}&modestbranding=1&rel=0`,
-      } satisfies VideoMetadata;
+      };
     })
     .filter((v): v is VideoMetadata => v !== null);
 

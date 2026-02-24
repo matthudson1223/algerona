@@ -25,7 +25,6 @@ function categoryMatchScore(
     .toLowerCase();
 
   let totalWeight = 0;
-  let totalMaxWeight = 0;
   const matched: string[] = [];
 
   for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
@@ -36,7 +35,6 @@ function categoryMatchScore(
       totalWeight += weight;
       matched.push(category);
     }
-    totalMaxWeight += 100; // max possible weight per category
   }
 
   // Normalize to 0-100
