@@ -1,7 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
 import type { AlgorithmProfile } from "@/types";
-
-const client = new Anthropic();
 
 interface NLTranslationResult {
   changes: Partial<{
@@ -38,14 +35,22 @@ export async function translateNLToParams(
   instruction: string,
   currentProfile: Pick<AlgorithmProfile, "categories" | "controls" | "nlRules">
 ): Promise<NLTranslationResult> {
-  const message = await client.messages.create({
-    model: "claude-opus-4-6",
-    max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `Current profile:
+  const response = await fetch("https://openrouter.io/api/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      "HTTP-Referer": "https://algerona.app",
+      "X-Title": "Algerona",
+    },
+    body: JSON.stringify({
+      model: process.env.OPENROUTER_MODEL || "anthropic/claude-opus-4-6",
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Current profile:
 ${JSON.stringify(currentProfile, null, 2)}
 
 User instruction: "${instruction}"
@@ -59,13 +64,21 @@ Respond with ONLY valid JSON matching this schema:
   },
   "explanation": "Brief explanation of what changed"
 }`,
-      },
-    ],
+        },
+      ],
+    }),
   });
 
-  const content = message.content[0];
+  if (!response.ok) {
+    throw new Error(`OpenRouter API error: ${response.statusText}`);
+  }
+
+  const data = (await response.json()) as {
+    content: Array<{ type: string; text: string }>;
+  };
+  const content = data.content[0];
   if (content.type !== "text") {
-    throw new Error("Unexpected response type from Claude");
+    throw new Error("Unexpected response type from OpenRouter");
   }
 
   // Strip markdown code fences if present
@@ -77,10 +90,18 @@ Respond with ONLY valid JSON matching this schema:
 export async function generateInitialProfile(
   description: string
 ): Promise<Pick<AlgorithmProfile, "categories" | "controls" | "nlRules">> {
-  const message = await client.messages.create({
-    model: "claude-opus-4-6",
-    max_tokens: 1024,
-    system: `You are setting up a video feed algorithm profile for a new user based on their preferences.
+  const response = await fetch("https://openrouter.io/api/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      "HTTP-Referer": "https://algerona.app",
+      "X-Title": "Algerona",
+    },
+    body: JSON.stringify({
+      model: process.env.OPENROUTER_MODEL || "anthropic/claude-opus-4-6",
+      max_tokens: 1024,
+      system: `You are setting up a video feed algorithm profile for a new user based on their preferences.
 
 Return ONLY valid JSON with this exact structure — no markdown, no explanation outside the JSON:
 {
@@ -113,16 +134,24 @@ Return ONLY valid JSON with this exact structure — no markdown, no explanation
 }
 
 Set category weights based on what the user says they want to watch. Use 0 for things they want to avoid, 75-100 for strong interests, 40-60 for mild interest, 0-20 for low interest.`,
-    messages: [
-      {
-        role: "user",
-        content: `User description: "${description}"`,
-      },
-    ],
+      messages: [
+        {
+          role: "user",
+          content: `User description: "${description}"`,
+        },
+      ],
+    }),
   });
 
-  const content = message.content[0];
-  if (content.type !== "text") throw new Error("Unexpected response from Claude");
+  if (!response.ok) {
+    throw new Error(`OpenRouter API error: ${response.statusText}`);
+  }
+
+  const data = (await response.json()) as {
+    content: Array<{ type: string; text: string }>;
+  };
+  const content = data.content[0];
+  if (content.type !== "text") throw new Error("Unexpected response from OpenRouter");
 
   const jsonText = content.text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
   return JSON.parse(jsonText);
